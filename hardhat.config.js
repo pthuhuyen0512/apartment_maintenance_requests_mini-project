@@ -1,9 +1,11 @@
 import "dotenv/config";
 import { defineConfig } from "hardhat/config";
-import toolbox from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
+import ethersPlugin from "@nomicfoundation/hardhat-ethers";
+import mochaPlugin from "@nomicfoundation/hardhat-mocha";
+import matchersPlugin from "@nomicfoundation/hardhat-ethers-chai-matchers";
 
 export default defineConfig({
-  plugins: [toolbox],
+  plugins: [ethersPlugin, mochaPlugin, matchersPlugin],
   solidity: {
     version: "0.8.28",
     settings: { optimizer: { enabled: true, runs: 200 }, evmVersion: "paris" },
