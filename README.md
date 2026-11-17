@@ -19,6 +19,15 @@ A Web3 application for coordinating apartment maintenance. Residents create requ
 
 The interface displays the connected account, request descriptions, assigned workers, statuses, transaction results, errors, and contract events.
 
+## Prerequisites
+
+- Node.js 24 LTS and npm.
+- Python 3.11 or later for the Python demonstration.
+- Ganache Desktop with at least three unlocked, funded test accounts.
+- MetaMask installed in the browser.
+
+Use Ganache test accounts and test Ether only. Do not use real funds or real-wallet private keys.
+
 ## Ganache network
 
 | Setting | Value |
