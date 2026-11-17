@@ -8,7 +8,7 @@
     "test": "hardhat test mocha",
     "test:ganache": "hardhat test mocha --network ganache",
     "deploy": "hardhat run scripts/deploy.js --network ganache",
-    "dev": "vite frontend --host 127.0.0.1 --port 5173 --strictPort",
+    "dev": "vite frontend --host 127.0.0.1 --port 8080 --strictPort",
     "build": "vite build frontend --outDir ../dist"
   },
   "devDependencies": {

@@ -1,9 +1,3 @@
-"""DS441: deploy and test MaintenanceRequests on local Ganache using web3.py.
-Run from the project root after npm.cmd run compile:
-    .venv\\Scripts\\python.exe scripts/demo.py
-Only unlocked Ganache TEST accounts are used. No private keys are stored.
-Assistance: initial implementation generated with OpenAI Codex; see README.md.
-"""
 import argparse
 import json
 import sys
@@ -144,7 +138,7 @@ def main():
     print(f"RESULT: {len(results)}/{len(results)} PASS | 0 FAIL")
     print(f"Contract: {contract.address}")
     print("Contract address + ABI: frontend/contract.json")
-    print("Frontend updated. Run npm.cmd run dev and open http://127.0.0.1:5173")
+    print("Frontend updated. Run npm.cmd run dev and open http://127.0.0.1:8080")
     print("Each run deploys a NEW contract and creates one test request.")
     print("=" * 72)
 

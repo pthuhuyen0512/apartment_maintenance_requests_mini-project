@@ -2,10 +2,11 @@ import deploymentConfig from "./contract.json";
 import { BrowserProvider, Contract, JsonRpcProvider, ZeroAddress, getAddress, isAddress } from "ethers";
 
 const $ = (id) => document.getElementById(id);
-const statusNames = ["Mới tạo", "Đã phân công", "Đã hoàn thành"];
+const statusNames = ["Pending", "Assigned", "Completed"];
 let config, reader, contract, wallet, signer, account = "", manager = "";
 let busy = false, loading = false, page = 0, total = 0, available = false;
 const pageSize = 8;
+const workerDrafts = new Map();
 const same = (a, b) => Boolean(a && b && a.toLowerCase() === b.toLowerCase());
 
 function notice(message, kind = "") {
@@ -15,18 +16,18 @@ function notice(message, kind = "") {
 function errorMessage(error) {
   const raw = [error.reason, error.shortMessage, error.message, error.info?.error?.message, error.error?.message, error.info?.error?.data?.reason].filter(Boolean).join(" · ");
   const translations = {
-    "Only manager": "Chỉ quản lý tòa nhà được phân công thợ.",
-    "Only assigned worker": "Bị từ chối: chỉ thợ được phân công mới được hoàn thành yêu cầu.",
-    "Request is not assigned": "Yêu cầu chưa được phân công hoặc đã hoàn thành.",
-    "Request is not pending": "Yêu cầu đã được phân công; không thể phân công lại.",
-    "Request does not exist": "Yêu cầu không tồn tại.",
-    "Invalid worker address": "Địa chỉ thợ không hợp lệ.",
-    "Description is required": "Vui lòng nhập mô tả.",
+    "Only manager": "Only the building manager can assign a worker.",
+    "Only assigned worker": "Rejected: only the assigned worker can complete this request.",
+    "Request is not assigned": "This request is not assigned or has already been completed.",
+    "Request is not pending": "This request has already been assigned and cannot be reassigned.",
+    "Request does not exist": "This request does not exist.",
+    "Invalid worker address": "The worker address is invalid.",
+    "Description is required": "Please enter a description.",
   };
   for (const [key, message] of Object.entries(translations)) if (raw.includes(key)) return `${message} (${key})`;
-  if (error.code === 4001 || error.code === "ACTION_REJECTED") return "Bạn đã từ chối thao tác trong ví.";
-  if (raw.includes("insufficient funds")) return "Tài khoản không đủ ETH thử nghiệm để trả phí gas.";
-  return raw || "Không thể thực hiện thao tác. Kiểm tra Ganache và kết nối ví.";
+  if (error.code === 4001 || error.code === "ACTION_REJECTED") return "You rejected the action in your wallet.";
+  if (raw.includes("insufficient funds")) return "This account does not have enough test ETH to pay gas fees.";
+  return raw || "Unable to complete the action. Check Ganache and your wallet connection.";
 }
 function node(tag, className, text) {
   const el = document.createElement(tag);
@@ -44,12 +45,12 @@ function updateControls() {
   document.querySelectorAll(".request-card button").forEach(button => { button.disabled = busy || !available || !account; });
 }
 async function getSigner() {
-  if (!window.ethereum) throw new Error("Cần cài MetaMask để gửi giao dịch.");
+  if (!window.ethereum) throw new Error("Install MetaMask to send transactions.");
   wallet = new BrowserProvider(window.ethereum);
   const walletNetwork = await wallet.getNetwork();
   if (Number(walletNetwork.chainId) !== config.chainId) {
     $("switch-network").hidden = false;
-    throw new Error(`Ví đang ở chain ${walletNetwork.chainId}. Chuyển sang Ganache, chain ${config.chainId}.`);
+    throw new Error(`Your wallet is on chain ${walletNetwork.chainId}. Switch to Ganache, chain ${config.chainId}.`);
   }
   $("switch-network").hidden = true;
   signer = await wallet.getSigner();
@@ -57,14 +58,14 @@ async function getSigner() {
 }
 async function connect() {
   try {
-    if (!window.ethereum) throw new Error("Chưa tìm thấy MetaMask. Cài tiện ích MetaMask rồi tải lại trang.");
+    if (!window.ethereum) throw new Error("MetaMask was not found. Install the extension and reload this page.");
     await window.ethereum.request({ method: "eth_requestAccounts" });
     const activeSigner = await getSigner();
     account = await activeSigner.getAddress();
     $("account").textContent = account;
-    $("connect").textContent = "Đã kết nối";
-    $("role").textContent = same(account, manager) ? "Quản lý tòa nhà · Có quyền phân công" : "Cư dân / thợ · Quyền phụ thuộc từng yêu cầu";
-    notice("Đã kết nối ví Ganache. Bạn có thể gửi giao dịch.", "success");
+    $("connect").textContent = "Connected";
+    $("role").textContent = same(account, manager) ? "Building manager · Can assign workers" : "Resident / worker · Permissions depend on each request";
+    notice("Ganache wallet connected. You can now submit transactions.", "success");
     await loadRequests();
   } catch (error) { notice(errorMessage(error), "error"); }
   updateControls();
@@ -74,14 +75,14 @@ async function transaction(label, action, onSuccess) {
   busy = true; updateControls();
   try {
     const activeSigner = await getSigner();
-    if (!same(await activeSigner.getAddress(), account)) throw new Error("Tài khoản ví đã đổi. Vui lòng kết nối lại.");
-    notice(`${label}: chờ bạn xác nhận trong MetaMask…`);
+    if (!same(await activeSigner.getAddress(), account)) throw new Error("Your wallet account has changed. Please reconnect.");
+    notice(`${label}: waiting for your confirmation in MetaMask…`);
     const tx = await action(contract.connect(activeSigner));
-    notice(`${label}: đang chờ blockchain xác nhận. Tx: ${tx.hash}`);
+    notice(`${label}: waiting for blockchain confirmation. Tx: ${tx.hash}`);
     const receipt = await tx.wait();
-    if (receipt.status !== 1) throw new Error("Giao dịch đã bị blockchain từ chối.");
+    if (receipt.status !== 1) throw new Error("The transaction was rejected by the blockchain.");
     onSuccess?.();
-    notice(`${label} thành công · Block ${receipt.blockNumber} · Tx: ${tx.hash}`, "success");
+    notice(`${label} successful · Block ${receipt.blockNumber} · Tx: ${tx.hash}`, "success");
   } catch (error) {
     const hash = error.receipt?.hash;
     notice(`${errorMessage(error)}${hash ? ` · Tx: ${hash}` : ""}`, "error");
@@ -94,35 +95,37 @@ async function transaction(label, action, onSuccess) {
 function renderRequest(r) {
   const card = node("article", "request-card");
   const heading = node("div", "card-heading");
-  heading.append(node("span", "request-id", `YÊU CẦU #${r.id}`), node("span", `badge status-${r.status}`, statusNames[Number(r.status)]));
+  heading.append(node("span", "request-id", `REQUEST #${r.id}`), node("span", `badge status-${r.status}`, statusNames[Number(r.status)]));
   card.append(heading, node("p", "description", r.description));
   const addresses = node("div", "addresses");
-  for (const [label, address] of [["CƯ DÂN", r.resident], ["THỢ ĐƯỢC PHÂN CÔNG", r.worker === ZeroAddress ? "Chưa phân công" : r.worker]]) {
+  for (const [label, address] of [["RESIDENT", r.resident], ["ASSIGNED WORKER", r.worker === ZeroAddress ? "Not assigned" : r.worker]]) {
     const item = node("div"); item.append(node("span", "", label), node("code", "", address)); addresses.append(item);
   }
   card.append(addresses);
   if (Number(r.status) === 0 && same(account, manager)) {
     const form = node("form", "assign-form");
-    const input = node("input"); input.placeholder = "Địa chỉ ví thợ: 0x…"; input.required = true;
-    input.setAttribute("aria-label", `Địa chỉ thợ cho yêu cầu ${r.id}`);
-    const button = node("button", "secondary", "Phân công"); button.type = "submit";
+    const input = node("input"); input.placeholder = "Worker wallet address: 0x…"; input.required = true;
+    input.value = workerDrafts.get(String(r.id)) ?? "";
+    input.addEventListener("input", () => workerDrafts.set(String(r.id), input.value));
+    input.setAttribute("aria-label", `Worker address for request ${r.id}`);
+    const button = node("button", "secondary", "Assign worker"); button.type = "submit";
     form.append(input, button);
     form.addEventListener("submit", event => {
       event.preventDefault();
       const address = input.value.trim();
-      if (!isAddress(address) || getAddress(address) === ZeroAddress) { notice("Nhập địa chỉ ví Ethereum hợp lệ, khác địa chỉ 0.", "error"); return; }
-      transaction("Phân công thợ", c => c.assignWorker(r.id, getAddress(address)));
+      if (!isAddress(address) || getAddress(address) === ZeroAddress) { notice("Enter a valid, non-zero Ethereum wallet address.", "error"); return; }
+      transaction("Assign worker", c => c.assignWorker(r.id, getAddress(address)), () => workerDrafts.delete(String(r.id)));
     });
     card.append(form);
   }
   if (Number(r.status) === 1 && account) {
     const allowed = same(account, r.worker);
-    const button = node("button", allowed ? "primary complete-button" : "secondary", allowed ? "Xác nhận hoàn thành ✓" : "Thử hoàn thành bằng tài khoản hiện tại");
-    button.addEventListener("click", () => transaction("Hoàn thành yêu cầu", c => c.completeRequest(r.id)));
+    const button = node("button", allowed ? "primary complete-button" : "secondary", allowed ? "Mark as completed ✓" : "Try completing with this account");
+    button.addEventListener("click", () => transaction("Complete request", c => c.completeRequest(r.id)));
     if (allowed) card.append(button);
     else {
       const details = node("details", "test-action");
-      details.append(node("summary", "", "Kiểm thử từ chối sai quyền"), node("p", "", "Tài khoản này không phải thợ được phân công. Hợp đồng sẽ từ chối thao tác."), button);
+      details.append(node("summary", "", "Test unauthorized completion"), node("p", "", "This account is not the assigned worker. The contract will reject this action."), button);
       card.append(details);
     }
   }
@@ -138,28 +141,28 @@ async function loadEvents() {
       const parsed = contract.interface.parseLog(event);
       if (!parsed) continue;
       const id = parsed.args.id.toString();
-      const labels = { RequestCreated: `Tạo yêu cầu #${id}`, WorkerAssigned: `Phân công thợ cho yêu cầu #${id}`, RequestCompleted: `Hoàn thành yêu cầu #${id}` };
+      const labels = { RequestCreated: `Request created #${id}`, WorkerAssigned: `Worker assigned to request #${id}`, RequestCompleted: `Request completed #${id}` };
       const item = node("li", "", `${labels[parsed.name] ?? parsed.name} · Block ${event.blockNumber}`);
       item.append(node("code", "", `Tx: ${event.transactionHash}`)); list.append(item);
     }
-    if (!list.children.length) list.append(node("li", "", "Chưa có sự kiện trong khoảng block này."));
-  } catch { $("events").replaceChildren(node("li", "", "Chưa đọc được sự kiện. Bấm Làm mới để thử lại.")); }
+    if (!list.children.length) list.append(node("li", "", "No events found in this block range."));
+  } catch { $("events").replaceChildren(node("li", "", "Unable to load events. Select Refresh to try again.")); }
 }
 async function loadRequests() {
   if (!contract || loading) return;
   loading = true; updateControls();
   try {
     // Detect a reset Ganache chain instead of showing stale deployment data.
-    if (await reader.getCode(config.address) === "0x") throw new Error("Không tìm thấy hợp đồng. Ganache có thể đã được tạo lại; hãy chạy npm.cmd run deploy rồi tải lại trang.");
+    if (await reader.getCode(config.address) === "0x") throw new Error("Contract not found. Ganache may have been reset. Run npm.cmd run deploy, then reload this page.");
     total = Number(await contract.requestCount());
     page = Math.min(page, Math.max(0, Math.ceil(total / pageSize) - 1));
     const newest = total - page * pageSize;
     const ids = Array.from({ length: Math.min(pageSize, newest) }, (_, i) => newest - i);
     const requests = await Promise.all(ids.map(id => contract.getRequest(id)));
     $("total").textContent = String(total);
-    $("page-label").textContent = `Trang ${page + 1} / ${Math.max(1, Math.ceil(total / pageSize))}`;
+    $("page-label").textContent = `Page ${page + 1} / ${Math.max(1, Math.ceil(total / pageSize))}`;
     $("requests").replaceChildren(...requests.map(renderRequest));
-    if (!requests.length) $("requests").append(node("p", "empty", "Chưa có yêu cầu nào. Hãy gửi yêu cầu bảo trì đầu tiên."));
+    if (!requests.length) $("requests").append(node("p", "empty", "No requests yet. Submit your first maintenance request."));
     await loadEvents();
   } catch (error) { notice(errorMessage(error), "error"); }
   finally { loading = false; updateControls(); }
@@ -171,8 +174,8 @@ $("next").addEventListener("click", () => { page++; loadRequests(); });
 $("create-form").addEventListener("submit", event => {
   event.preventDefault();
   const description = $("description").value.trim();
-  if (!description) { notice("Vui lòng nhập nội dung yêu cầu.", "error"); return; }
-  transaction("Tạo yêu cầu", c => c.createRequest(description), () => { $("description").value = ""; page = 0; });
+  if (!description) { notice("Please enter a request description.", "error"); return; }
+  transaction("Create request", c => c.createRequest(description), () => { $("description").value = ""; page = 0; });
 });
 $("switch-network").addEventListener("click", async () => {
   try {
@@ -189,9 +192,9 @@ if (window.ethereum) {
   for (const event of ["accountsChanged", "chainChanged"]) {
     window.ethereum.on(event, () => {
       account = ""; signer = undefined;
-      $("account").textContent = "Ví đã thay đổi. Hãy kết nối lại.";
-      $("role").textContent = ""; $("connect").textContent = "Kết nối lại ví";
-      notice("Ví hoặc mạng đã thay đổi. Bấm Kết nối lại ví để cập nhật tài khoản.");
+      $("account").textContent = "Your wallet changed. Please reconnect.";
+      $("role").textContent = ""; $("connect").textContent = "Reconnect wallet";
+      notice("Your wallet account or network changed. Select Reconnect wallet to update your account.");
       updateControls(); loadRequests();
     });
   }
@@ -203,16 +206,16 @@ async function init() {
     $("chain-id").textContent = config.chainId;
     reader = new JsonRpcProvider(config.rpcUrl);
     reader.pollingInterval = 1000;
-    if (Number((await reader.getNetwork()).chainId) !== config.chainId) throw new Error("Chain ID của Ganache khác cấu hình triển khai.");
+    if (Number((await reader.getNetwork()).chainId) !== config.chainId) throw new Error("The Ganache chain ID does not match the deployment configuration.");
     contract = new Contract(config.address, config.abi, reader);
     manager = await contract.manager();
-    if (!same(manager, config.manager)) throw new Error("Thông tin triển khai không khớp. Hãy deploy lại.");
+    if (!same(manager, config.manager)) throw new Error("The deployment information does not match. Deploy the contract again.");
     $("manager").textContent = manager;
     available = true;
-    notice("Đã kết nối Ganache để đọc dữ liệu. Kết nối ví khi bạn muốn gửi giao dịch.");
+    notice("Connected to Ganache for live data. Connect your wallet to submit transactions.");
     await loadRequests();
   } catch (error) { notice(errorMessage(error), "error"); }
   updateControls();
 }
 await init();
-setInterval(() => { if (available && !busy && !loading) loadRequests(); }, 12000);
+setInterval(() => { if (available && !busy && !loading && !$("requests").contains(document.activeElement) && !document.querySelector(".test-action[open]")) loadRequests(); }, 12000);

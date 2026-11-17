@@ -1,15 +1,15 @@
 {
-  "address": "0x0d68F92F671B14a7418fC05Fa7418A8dB183C0E3",
+  "address": "0x1eaD876D8a61733BDf05FF5B521788d256191D29",
   "chainId": 1337,
   "rpcUrl": "http://127.0.0.1:7545",
-  "manager": "0x49CAE0255c364A56d4106FfC554f2428BFdA84E9",
+  "manager": "0x29F9BcfCB23Cec8d15E76c0d4C660755AEE89606",
   "demoAccounts": {
-    "resident": "0xF1E56Ce6138BdB1a4B553DF7C4FB88925EC88d86",
-    "worker": "0x1A47f8C4Ea7794c271aDDFb23aCEF40AC57d4f44"
+    "resident": "0xaCa85b850C23A15fC0Dfe3DA675b9aaCb96A7E89",
+    "worker": "0xEB4Db5237Bd078642AC3Bcfeb54008a6fAe22C05"
   },
-  "transactionHash": "0x098209e74a50c9094d48ab37f62696388cad7897c00d04b06a0d2a2f2841866c",
-  "deploymentBlock": 41,
-  "deployedAt": "2026-11-17T08:56:48.327860+00:00",
+  "transactionHash": "0xa9009fa2640aab6569e71faf6cee79b5333142f3af528c832519174256f6473a",
+  "deploymentBlock": 1,
+  "deployedAt": "2026-11-17T09:41:55.531Z",
   "abi": [
     {
       "inputs": [],
