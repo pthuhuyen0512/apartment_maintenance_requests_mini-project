@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="vi">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#123d36"><title>An Cư · Bảo trì căn hộ</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<header class="topbar"><a class="brand" href="/" aria-label="An Cư, trang chủ"><span class="brand-mark">A</span><span>An Cư<small>APARTMENT CARE</small></span></a><span class="network-pill"><span class="dot"></span>GANACHE · LOCAL</span><button id="connect" class="primary">Kết nối ví</button></header>
+<main>
+<section class="intro"><div><p class="eyebrow">KHÔNG GIAN SỐNG, LUÔN ĐƯỢC CHĂM SÓC</p><h1>Bảo trì căn hộ.</h1><p>Gửi yêu cầu, phân công và theo dõi hoàn thành trên blockchain.</p></div><span class="course-tag">DS441<br><b>MINI PROJECT</b></span></section>
+<section class="connection" aria-label="Thông tin blockchain">
+<div><span class="label">TÀI KHOẢN ĐANG KẾT NỐI</span><code id="account">Chưa kết nối ví</code><span id="role" class="subtle">Kết nối để gửi giao dịch</span></div>
+<div><span class="label">QUẢN LÝ TÒA NHÀ</span><code id="manager">—</code></div>
+<div><span class="label">HỢP ĐỒNG · CHAIN ID <span id="chain-id">—</span></span><code id="contract">Chưa triển khai</code><button id="switch-network" class="text-button" hidden>Chuyển sang mạng Ganache</button></div>
+</section>
+<div id="notice" class="notice" role="status" aria-live="polite">Đang tải thông tin hợp đồng…</div>
+<section class="workspace">
+<aside class="panel request-panel"><span class="section-number">01 / GỬI YÊU CẦU</span><h2>Cần sửa chữa<br>điều gì?</h2><p class="subtle">Mô tả vị trí và sự cố để quản lý có thể phân công người hỗ trợ.</p>
+<form id="create-form"><label for="description">Nội dung yêu cầu</label><textarea id="description" rows="6" placeholder="Ví dụ: Vòi nước phòng bếp căn A101 bị rò…" required maxlength="2000"></textarea><span class="hint">Thông tin được lưu công khai trên blockchain thử nghiệm.</span><button class="primary wide" id="create" type="submit" disabled>Gửi yêu cầu <span aria-hidden="true">↗</span></button></form>
+<div class="workflow"><span>Mới tạo</span><i>→</i><span>Phân công</span><i>→</i><span>Hoàn thành</span></div></aside>
+<section class="panel list-panel"><div class="section-header"><div><span class="section-number">02 / THEO DÕI XỬ LÝ</span><h2>Yêu cầu bảo trì <span id="total" class="count">0</span></h2></div><button id="refresh" class="secondary">Làm mới ↻</button></div><p class="subtle">Quản lý phân công. Chỉ thợ được phân công mới được xác nhận hoàn thành.</p><div id="requests" class="requests"><p class="empty">Dữ liệu sẽ xuất hiện sau khi kết nối Ganache.</p></div><div class="pagination"><button id="previous" class="text-button" disabled>← Mới hơn</button><span id="page-label">Trang 1</span><button id="next" class="text-button" disabled>Cũ hơn →</button></div></section>
+</section>
+<section class="panel events-panel"><div class="section-header"><div><span class="section-number">03 / NHẬT KÝ BLOCKCHAIN</span><h2>Hoạt động gần đây</h2></div><span class="subtle">Sự kiện từ hợp đồng</span></div><p class="hint">Tối đa 15 sự kiện trong 2.000 block gần nhất.</p><ol id="events" class="events"><li>Chưa có dữ liệu.</li></ol></section>
+<footer><span>An Cư · Apartment Maintenance Requests</span><span>Ganache thử nghiệm · Không sử dụng tiền thật</span></footer>
+</main><script type="module" src="/app.js"></script>
+</body></html>
